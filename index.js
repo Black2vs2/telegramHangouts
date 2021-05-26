@@ -15,6 +15,7 @@ const hangoutsOpts = {
   cookiespath: userFolder + "cookies.json",
   rtokenpath: userFolder + "refreshtoken.txt",
 };
+prepareFiles();
 const client = new Client(hangoutsOpts);
 const telegramOpts = { parse_mode: "html" };
 const tg_token = process.env.TG_TOKEN; //Create a .env file and insert a TG_TOKEN="TOKENINHERE" entry
@@ -30,9 +31,22 @@ let hangoutsOptions = {
   sendPresenceAfterMessage: "yes",
 };
 
+function prepareFiles() {
+  const cookiesFile = "cookies.json";
+  const envFile = ".env";
+  const tgchatidFile = "tg_chatid.txt";
+  const refreshtokenFile = "refreshtoken.txt";
+  if (!fs.existsSync(userFolder)) {
+    fs.mkdirSync(userFolder);
+  }
+  if (!fs.existsSync(envFile)) {
+    fs.writeFileSync(envFile, "TG_TOKEN=");
+  }
+}
+
 //Handles new chat.google events
 client.on("chat_message", async (chat_message) => {
-  writeDebug("hangout_event",JSON.stringify(chat_message))
+  writeDebug("hangout_event", JSON.stringify(chat_message));
   const senderID = chat_message.sender_id.chat_id;
   const isSelf = checkIfSelf(senderID);
   if (isSelf && hangoutsOptions.messages != "all") {
@@ -50,7 +64,7 @@ client.on("chat_message", async (chat_message) => {
 
 //Handles legacy hangouts events
 client.on("hangout_event", async (hangout_event) => {
-  writeDebug("hangout_event",JSON.stringify(hangout_event))
+  writeDebug("hangout_event", JSON.stringify(hangout_event));
   const senderID = hangout_event.sender_id.chat_id;
   const convID = chat_message.conversation_id.id;
   const event_type = hangout_event.hangout_event.event_type;
@@ -62,10 +76,10 @@ client.on("hangout_event", async (hangout_event) => {
   sendTelegramNotification(botMessage);
 });
 
-function writeDebug(funcName,funcEvent){
-  logger.debug(funcName+" Start-------");
-  logger.debug(funcEvent)
-  logger.debug(funcName+" End-------");
+function writeDebug(funcName, funcEvent) {
+  logger.debug(funcName + " Start-------");
+  logger.debug(funcEvent);
+  logger.debug(funcName + " End-------");
 }
 
 //Handles commands on telegram bot
@@ -104,7 +118,9 @@ async function handleBotCommands(text_event) {
         case "messages": {
           if (value === "all" || value === "partial") {
             hangoutsOptions[option] = value;
-            sendTelegramNotification("Option changed successfully to: " + value);
+            sendTelegramNotification(
+              "Option changed successfully to: " + value
+            );
           } else {
             //ERROR: VALUE NOT VALID
             sendTelegramNotification("Third parameter not recognized");
@@ -124,18 +140,20 @@ async function handleBotCommands(text_event) {
     }
     case "/setpresence": {
       const presence = String(messageSplit[1]);
-      if(presence &&( presence === 'online' || presence === 'offline')) {
-        await client.setpresence(presence==='online')
-        sendTelegramNotification("Presence set to: " + presence,mood=None);
+      if (presence && (presence === "online" || presence === "offline")) {
+        await client.setpresence(presence === "online");
+        sendTelegramNotification("Presence set to: " + presence, (mood = None));
       } else {
-        sendTelegramNotification("Option not recognized: possible values are online or offline");
+        sendTelegramNotification(
+          "Option not recognized: possible values are online or offline"
+        );
       }
       break;
     }
     case "/querypresence": {
       const userChatID = messageSplit[1];
-      if(userChatID && userChatID.length==21) {
-        checkPresence(userChatID)
+      if (userChatID && userChatID.length == 21) {
+        checkPresence(userChatID);
       } else {
         sendTelegramNotification("Parameter must be a chat_id");
       }
@@ -158,14 +176,17 @@ async function handleBotCommands(text_event) {
   }
 }
 
-async function checkPresence(userChatID){
-  const presence = await client.querypresence(userChatID)
-  logger.debug(JSON.stringify(presence))
-  const h1 = "<b>Presence of "+userChatID+"</b>";
-  const h2 = "\n<b>Hangouts name</b>: " + await getNameFromId(userChatID);
-  const h3 = "\n<b>Online</b>: " + presence.presenceResult[0].presence.available;
-  const h4 = "\n<b>Last Seen</b>: " + presence.presenceResult[0].presence.lastSeen.lastSeenTimestampUsec;
-  const output = h1 + h2 +h3 +h4
+async function checkPresence(userChatID) {
+  const presence = await client.querypresence(userChatID);
+  logger.debug(JSON.stringify(presence));
+  const h1 = "<b>Presence of " + userChatID + "</b>";
+  const h2 = "\n<b>Hangouts name</b>: " + (await getNameFromId(userChatID));
+  const h3 =
+    "\n<b>Online</b>: " + presence.presenceResult[0].presence.available;
+  const h4 =
+    "\n<b>Last Seen</b>: " +
+    presence.presenceResult[0].presence.lastSeen.lastSeenTimestampUsec;
+  const output = h1 + h2 + h3 + h4;
   sendTelegramNotification(output);
 }
 
