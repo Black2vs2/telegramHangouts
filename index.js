@@ -28,7 +28,7 @@ let hangoutsSelf = {
 };
 let hangoutsOptions = {
   messages: "all", //all, partial
-  sendPresenceAfterMessage: "yes",
+  state: "pause",
 };
 
 function prepareFiles() {
@@ -46,6 +46,7 @@ function prepareFiles() {
 
 //Handles new chat.google events
 client.on("chat_message", async (chat_message) => {
+  if(hangoutsOptions.state === "pause") return
   writeDebug("hangout_event", JSON.stringify(chat_message));
   const senderID = chat_message.sender_id.chat_id;
   const isSelf = checkIfSelf(senderID);
@@ -64,6 +65,7 @@ client.on("chat_message", async (chat_message) => {
 
 //Handles legacy hangouts events
 client.on("hangout_event", async (hangout_event) => {
+  if(hangoutsOptions.state === "pause") return
   writeDebug("hangout_event", JSON.stringify(hangout_event));
   const senderID = hangout_event.sender_id.chat_id;
   const convID = chat_message.conversation_id.id;
@@ -109,6 +111,16 @@ async function handleBotCommands(text_event) {
       const chatID = await getChatID();
       const message = "Your id is: " + chatID;
       bot.sendMessage(tg_chatID, message);
+      break;
+    }
+    case "/pause": {
+      hangoutsOptions.state = 'pause'
+      sendTelegramNotification("Bot has paused");
+      break;
+    }
+    case "/resume": {
+      hangoutsOptions.state = 'resume'
+      sendTelegramNotification("Bot has resumed");
       break;
     }
     case "/changeoption": {
@@ -201,6 +213,7 @@ async function tgSendMessage(messageSplit) {
       "Insufficient number of arguments for the command supplied \nExpected: /sendmessage {HangoutsConvID} {Message}"
     );
   } else if (messageSplit[1].length == 34) {
+    console.log(messageSplit)
     const HangoutsConvID = messageSplit[1];
     const message = messageSplit.slice(2).join(" ");
     await client.sendchatmessage(HangoutsConvID, [[0, message]]);
@@ -217,11 +230,21 @@ async function tgSendMessage(messageSplit) {
 async function tgTest() {
   const h1 = "<b>Hangouts status</b>";
   const h2 = "\n<b>Is inited</b>: " + client.isInited();
-  const h3 = "\n<b>Hangouts chat_id</b>: " + hangoutsSelf.selfID;
-  const h4 = "\n<b>Hangouts name</b>: " + hangoutsSelf.selfName;
-  const h5 = "\n\n<b>Telegram status</b>";
-  const h6 = "\n<b>tg_chatid.txt</b>: " + (await getChatID());
-  const statusMessage = h1 + h2 + h3 + h4 + h5 + h6;
+  const h3 = "\n<b>Bot state</b>: " + hangoutsOptions.state;
+  const h4 = "\n<b>Hangouts chat_id</b>: " + hangoutsSelf.selfID;
+  const h5 = "\n<b>Hangouts name</b>: " + hangoutsSelf.selfName;
+  const h6 = "\n\n<b>Telegram status</b>";
+  const h7 = "\n<b>tg_chatid.txt</b>: " + (await getChatID());
+  const messageSplit = [
+    '/sendmessage',
+    'Ugw7Bm4Cbt7hgtS7g_N4AaABAagB3MOSCg',
+    'Test',
+    'Message',
+    'Sent'
+  ]
+  tgSendMessage(messageSplit)
+  const h8 = "\n<b>Sent a message to</b>: " + messageSplit[1];
+  const statusMessage = h1 + h2 + h3 + h4 + h5 + h6 + h7 + h8
   bot.sendMessage(tg_chatID, statusMessage, telegramOpts);
 }
 
@@ -346,8 +369,8 @@ const reconnect = function () {
     tg_chatID = await getChatID();
   });
 };
-client.on("connect_failed", function () {
-  logger.error("connect_failed");
+client.on("connect_failed", function (err) {
+  logger.error("connect_failed: ", err);
   Q.Promise(function (rs) {
     setTimeout(rs, 3000);
   }).then(reconnect);
