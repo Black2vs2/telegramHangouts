@@ -33,7 +33,7 @@ let hangoutsOptions = {
 
 function prepareFiles() {
   const cookiesFile = "cookies.json";
-  const userFile = "users.json"
+  const userFile = "users.json";
   const envFile = ".env";
   const tgchatidFile = "tg_chatid.txt";
   const refreshtokenFile = "refreshtoken.txt";
@@ -50,7 +50,7 @@ function prepareFiles() {
 
 //Handles new chat.google events
 client.on("chat_message", async (chat_message) => {
-  if(hangoutsOptions.state === "pause") return
+  if (hangoutsOptions.state === "pause") return;
   writeDebug("hangout_event", JSON.stringify(chat_message));
   const senderID = chat_message.sender_id.chat_id;
   const isSelf = checkIfSelf(senderID);
@@ -69,10 +69,10 @@ client.on("chat_message", async (chat_message) => {
 
 //Handles legacy hangouts events
 client.on("hangout_event", async (hangout_event) => {
-  if(hangoutsOptions.state === "pause") return
+  if (hangoutsOptions.state === "pause") return;
   writeDebug("hangout_event", JSON.stringify(hangout_event));
   const senderID = hangout_event.sender_id.chat_id;
-  const convID = chat_message.conversation_id.id;
+  const convID = hangout_event.conversation_id.id;
   const event_type = hangout_event.hangout_event.event_type;
   const timestamp = hangout_event.timestamp;
   const name = await getNameFromId(senderID);
@@ -118,12 +118,12 @@ async function handleBotCommands(text_event) {
       break;
     }
     case "/pause": {
-      hangoutsOptions.state = 'pause'
+      hangoutsOptions.state = "pause";
       sendTelegramNotification("Bot has paused");
       break;
     }
     case "/resume": {
-      hangoutsOptions.state = 'resume'
+      hangoutsOptions.state = "resume";
       sendTelegramNotification("Bot has resumed");
       break;
     }
@@ -166,22 +166,26 @@ async function handleBotCommands(text_event) {
       }
       break;
     }
-    case "/saveuser":{
+    case "/saveuser": {
       const username = messageSplit[1];
       const convID = messageSplit[2];
-      const userJSON = JSON.parse(await fs.readFileSync(userFolder + "users.json", "utf8"))
-      userJSON[convID] = username
-      fs.writeFileSync(userFolder + "users.json",JSON.stringify(userJSON))
+      const userJSON = JSON.parse(
+        await fs.readFileSync(userFolder + "users.json", "utf8")
+      );
+      userJSON[convID] = username;
+      fs.writeFileSync(userFolder + "users.json", JSON.stringify(userJSON));
       break;
     }
-    case "/getusers":{
-      const users = JSON.parse(await fs.readFileSync(userFolder + "users.json", "utf8"))
-      let userList = ""
-      console.log(users)
+    case "/getusers": {
+      const users = JSON.parse(
+        await fs.readFileSync(userFolder + "users.json", "utf8")
+      );
+      let userList = "";
+      console.log(users);
       Object.entries(users).forEach((user) => {
-        userList += user + "\n"
-      })
-      sendTelegramNotification(userList)
+        userList += user + "\n";
+      });
+      sendTelegramNotification(userList);
       break;
     }
     case "/querypresence": {
@@ -235,7 +239,7 @@ async function tgSendMessage(messageSplit) {
       "Insufficient number of arguments for the command supplied \nExpected: /sendmessage {HangoutsConvID} {Message}"
     );
   } else if (messageSplit[1].length == 34) {
-    console.log(messageSplit)
+    console.log(messageSplit);
     const HangoutsConvID = messageSplit[1];
     const message = messageSplit.slice(2).join(" ");
     await client.sendchatmessage(HangoutsConvID, [[0, message]]);
@@ -258,15 +262,15 @@ async function tgTest() {
   const h6 = "\n\n<b>Telegram status</b>";
   const h7 = "\n<b>tg_chatid.txt</b>: " + (await getChatID());
   const messageSplit = [
-    '/sendmessage',
-    'Ugw7Bm4Cbt7hgtS7g_N4AaABAagB3MOSCg',
-    'Test',
-    'Message',
-    'Sent'
-  ]
-  tgSendMessage(messageSplit)
+    "/sendmessage",
+    "Ugw7Bm4Cbt7hgtS7g_N4AaABAagB3MOSCg",
+    "Test",
+    "Message",
+    "Sent",
+  ];
+  tgSendMessage(messageSplit);
   const h8 = "\n<b>Sent a message to</b>: " + messageSplit[1];
-  const statusMessage = h1 + h2 + h3 + h4 + h5 + h6 + h7 + h8
+  const statusMessage = h1 + h2 + h3 + h4 + h5 + h6 + h7 + h8;
   bot.sendMessage(tg_chatID, statusMessage, telegramOpts);
 }
 
@@ -382,6 +386,11 @@ function checkTGToken() {
     process.exit();
   }
 }
+
+process.on("uncaughtException", function (err) {
+  logger.error("Uncaught Exception: " + err);
+  sendTelegramNotification("Uncaught Exception: " + err);
+});
 
 //Reconnect in case of expired session/errors with the Hangouts API
 const reconnect = function () {
