@@ -33,6 +33,7 @@ let hangoutsOptions = {
 
 function prepareFiles() {
   const cookiesFile = "cookies.json";
+  const userFile = "users.json"
   const envFile = ".env";
   const tgchatidFile = "tg_chatid.txt";
   const refreshtokenFile = "refreshtoken.txt";
@@ -41,6 +42,9 @@ function prepareFiles() {
   }
   if (!fs.existsSync(envFile)) {
     fs.writeFileSync(envFile, "TG_TOKEN=");
+  }
+  if (!fs.existsSync(userFolder + userFile)) {
+    fs.writeFileSync(userFolder + userFile, "{}");
   }
 }
 
@@ -160,6 +164,24 @@ async function handleBotCommands(text_event) {
           "Option not recognized: possible values are online or offline"
         );
       }
+      break;
+    }
+    case "/saveuser":{
+      const username = messageSplit[1];
+      const convID = messageSplit[2];
+      const userJSON = JSON.parse(await fs.readFileSync(userFolder + "users.json", "utf8"))
+      userJSON[convID] = username
+      fs.writeFileSync(userFolder + "users.json",JSON.stringify(userJSON))
+      break;
+    }
+    case "/getusers":{
+      const users = JSON.parse(await fs.readFileSync(userFolder + "users.json", "utf8"))
+      let userList = ""
+      console.log(users)
+      Object.entries(users).forEach((user) => {
+        userList += user + "\n"
+      })
+      sendTelegramNotification(userList)
       break;
     }
     case "/querypresence": {
