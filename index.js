@@ -28,7 +28,7 @@ let hangoutsSelf = {
 };
 let hangoutsOptions = {
   messages: "all", //all, partial
-  state: "pause",
+  state: "resume",
 };
 
 function prepareFiles() {
