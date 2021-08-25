@@ -37,15 +37,10 @@ function prepareFiles() {
   const envFile = ".env";
   const tgchatidFile = "tg_chatid.txt";
   const refreshtokenFile = "refreshtoken.txt";
-  if (!fs.existsSync(userFolder)) {
-    fs.mkdirSync(userFolder);
-  }
-  if (!fs.existsSync(envFile)) {
-    fs.writeFileSync(envFile, "TG_TOKEN=");
-  }
-  if (!fs.existsSync(userFolder + userFile)) {
+  if (!fs.existsSync(userFolder)) fs.mkdirSync(userFolder);
+  if (!fs.existsSync(envFile)) fs.writeFileSync(envFile, "TG_TOKEN=");
+  if (!fs.existsSync(userFolder + userFile))
     fs.writeFileSync(userFolder + userFile, "{}");
-  }
 }
 
 //Handles new chat.google events
@@ -90,7 +85,12 @@ function writeDebug(funcName, funcEvent) {
 
 //Handles commands on telegram bot
 bot.on("text", (text_event) => {
-  handleBotCommands(text_event);
+  if (!text_event.reply_to_message) {
+    handleBotCommands(text_event);
+    return;
+  } else {
+    handleBotReply(text_event);
+  }
 });
 
 //Handles error on telegram bot
@@ -103,6 +103,18 @@ async function handleBotCommands(text_event) {
   const messageSplit = messageText.split(" ");
   if (!messageSplit) return;
   const command = messageSplit[0];
+  if (!command) return;
+  if (!tg_chatID && command !== "/setchatid") {
+    const chatID = text_event.chat.id;
+    bot.sendMessage(
+      chatID,
+      "You need to set your chatID to use telegram commands.\nUse /setchatid"
+    );
+    logger.error(
+      "You need to set your chatID to use telegram commands. Use /setchatid on Telegram chat"
+    );
+    return;
+  }
   switch (command) {
     case "/setchatid": {
       const chatID = text_event.chat.id;
@@ -211,6 +223,37 @@ async function handleBotCommands(text_event) {
       sendTelegramNotification("Command not recognized");
       break;
     }
+  }
+}
+
+async function handleBotReply(text_event) {
+  const repliedMessage = text_event.reply_to_message;
+  if (
+    !text_event.text.toLowerCase().startsWith("sm ") ||
+    !repliedMessage.from.is_bot ||
+    !repliedMessage.text.includes("ConvID: ")
+  ) {
+    handleBotCommands(text_event);
+    return;
+  }
+  const repliedMessageText = repliedMessage.text;
+  const messageSplit = repliedMessageText.split("\n");
+  let parsedConvID = "";
+  let parsedSenderID = "";
+  messageSplit.forEach((split) => {
+    if (split.includes("SenderID: "))
+      parsedSenderID = split.replace("SenderID: ", "");
+    if (split.includes("ConvID: "))
+      parsedConvID = split.replace("ConvID: ", "");
+  });
+  if (parsedConvID !== "" && parsedSenderID !== "") {
+    if (checkIfSelf(parsedSenderID)) {
+      sendTelegramNotification("You can only reply to other's messages");
+      return;
+    }
+    const parsedMessage = text_event.text.substring(3);
+    const messageSplit = ["/sendmessage", parsedConvID, parsedMessage];
+    tgSendMessage(messageSplit);
   }
 }
 
@@ -337,9 +380,9 @@ function messageContentToString(type, incoming_content) {
 function timestampToFormattedDate(timestamp) {
   //TODO: const date = new Date(timestamp);
   const date = new Date(Date.now());
-  const h = (date.getHours() < 10 ? "0" : "") + date.getHours();
-  const m = (date.getMinutes() < 10 ? "0" : "") + date.getMinutes();
-  const s = (date.getSeconds() < 10 ? "0" : "") + date.getSeconds();
+  const h = date.getHours() < 10 ? "0" : "" + date.getHours();
+  const m = date.getMinutes() < 10 ? "0" : "" + date.getMinutes();
+  const s = date.getSeconds() < 10 ? "0" : "" + date.getSeconds();
   const formattedTime = h + ":" + m + ":" + s;
   logger.debug("timestampToFormattedDate: " + formattedTime);
   return formattedTime;
@@ -375,7 +418,7 @@ async function getChatID() {
 async function setChatID(chatID) {
   await fs.writeFile(userFolder + "tg_chatid.txt", "" + chatID, () => {});
   tg_chatID = chatID;
-  logger.debug("setChatID: ", chatID);
+  logger.debug("setChatID: " + tg_chatID);
 }
 
 function checkTGToken() {
